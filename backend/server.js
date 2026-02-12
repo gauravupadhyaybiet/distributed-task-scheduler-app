@@ -1,3 +1,10 @@
+
+
+/**
+ * server.js
+ * Entry point for Distributed Job Scheduler (Render-friendly)
+ */
+
 require("dotenv").config();
 require("./config/mongo");
 
@@ -5,15 +12,19 @@ const express = require("express");
 const cors = require("cors");
 const os = require("os");
 
-/* ===== ROUTES ===== */
+/* ================= ROUTES ================= */
+
 const authRoutes = require("./routes/auth");
 const jobRoutes = require("./routes/jobRoutes");
 const cronJobsRoutes = require("./routes/cronRoutes");
+const deadJobRoutes = require("./routes/deadJobRoutes");
 
-/* ===== MIDDLEWARE ===== */
+/* ================= MIDDLEWARE ================= */
+
 const auth = require("./middleware/auth");
 
-/* ===== SERVICES ===== */
+/* ================= SERVICES ================= */
+
 const {
   startWorker,
   stopWorker,
@@ -26,20 +37,23 @@ const {
   cronStatus
 } = require("./services/cronService");
 
+/* ================= APP ================= */
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* ================= MIDDLEWARE ================= */
+/* ================= GLOBAL MIDDLEWARE ================= */
 
 app.use(express.json());
 app.use(cors({ origin: "*", credentials: true }));
 
+// 🔍 Request logger (safe for Render)
 app.use((req, res, next) => {
   console.log(`[PID ${process.pid}] ${req.method} ${req.originalUrl}`);
   next();
 });
 
-/* ================= AUTH ================= */
+/* ================= AUTH ROUTES ================= */
 
 app.use("/auth", authRoutes);
 
@@ -47,9 +61,11 @@ app.use("/auth", authRoutes);
 
 app.use("/jobs", auth, jobRoutes);
 app.use("/cron-jobs", auth, cronJobsRoutes);
+app.use("/dead-jobs", auth, deadJobRoutes);
 
 /* ================= CONTROL ROUTES ================= */
 
+// WORKER
 app.post("/worker/start", auth, (req, res) => {
   startWorker();
   res.json({ running: true });
@@ -64,6 +80,7 @@ app.get("/worker/status", auth, (req, res) => {
   res.json({ running: workerStatus() });
 });
 
+// CRON RUNNER
 app.post("/cron/start", auth, (req, res) => {
   startCronRunner();
   res.json({ running: true });
@@ -78,7 +95,7 @@ app.get("/cron/status", auth, (req, res) => {
   res.json({ running: cronStatus() });
 });
 
-/* ================= HEALTH ================= */
+/* ================= HEALTH CHECK ================= */
 
 app.get("/health", (req, res) => {
   res.json({
@@ -94,5 +111,3 @@ app.get("/health", (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
-
-
