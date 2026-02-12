@@ -1,16 +1,24 @@
+
 require("dotenv").config();
 const nodemailer = require("nodemailer");
 
-/* ===================== TRANSPORT ===================== */
+/* ===================== BREVO SMTP TRANSPORT ===================== */
+/*
+  Brevo SMTP is very stable on Render.
+  user = "apikey"
+  pass = your Brevo API key
+*/
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp-relay.brevo.com",
+  port: 587,
+  secure: false,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: process.env.BREVO_SMTP_USER, // usually "apikey"
+    pass: process.env.BREVO_SMTP_PASS  // Brevo API key
   },
 
-  // 🔥 CRITICAL FOR RENDER / CLOUD
+  // 🔥 CRITICAL FOR CLOUD STABILITY
   connectionTimeout: 10000, // 10s
   greetingTimeout: 10000,
   socketTimeout: 10000
@@ -26,8 +34,10 @@ async function sendEmail(payload) {
   }
 
   try {
+    console.log(`📨 Sending email → ${to}`);
+
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"Scheduler App" <${process.env.EMAIL_FROM}>`,
       to,
       subject: subject || "Job Notification",
       text: message
@@ -37,7 +47,7 @@ async function sendEmail(payload) {
   } catch (err) {
     console.error("❌ Email send failed:", err.message);
 
-    // IMPORTANT: rethrow so worker can retry
+    // IMPORTANT: rethrow so worker retries or DLQ kicks in
     throw err;
   }
 }
